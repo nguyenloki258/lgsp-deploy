@@ -1,0 +1,60 @@
+version: "3.8"
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    deploy:
+      placement:
+        constraints: [ node.role ==  manager ]
+    environment:
+      LDAP_LOG_LEVEL: "256"
+      LDAP_ORGANISATION: "${LDAP_DOMAIN}."
+      LDAP_DOMAIN: "${LDAP_DOMAIN}"
+      LDAP_BASE_DN: ""
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
+      LDAP_CONFIG_PASSWORD: "${LDAP_CONFIG_PASSWORD}"
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "false"
+      LDAP_BACKEND: "mdb"
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: "ldap.crt"
+      LDAP_TLS_KEY_FILENAME: "ldap.key"
+      LDAP_TLS_DH_PARAM_FILENAME: "dhparam.pem"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
+      LDAP_TLS_ENFORCE: "false"
+      LDAP_TLS_CIPHER_SUITE: "SECURE256:-VERS-SSL3.0"
+      LDAP_TLS_VERIFY_CLIENT: "demand"
+      LDAP_REPLICATION: "false"
+      KEEP_EXISTING_CONFIG: "false"
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+      LDAP_SSL_HELPER_PREFIX: "ldap"
+    tty: true
+    stdin_open: true
+    volumes:
+      - /var/lib/ldap
+      - /etc/ldap/slapd.d
+      - /container/service/slapd/assets/certs/
+      
+    ports:
+      - "389:389"
+      - "636:636"
+    domainname: "${LDAP_DOMAIN}"
+    hostname: "ldap-server"
+    networks:
+      - service_cluster_network
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: phpldapadmin
+    deploy:
+      placement:
+        constraints: [ node.role ==  manager ]
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8389:80"
+    networks:
+      - service_cluster_network
+networks:
+  service_cluster_network:
+    external: true 

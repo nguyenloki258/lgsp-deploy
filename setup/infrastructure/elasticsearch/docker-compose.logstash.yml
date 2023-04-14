@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${STACK_VERSION}
+    deploy:
+      replicas: 0
+    ports:
+      - target: 5044
+        published: ${LOGSTASH_PORT}
+        protocol: tcp
+        mode: host 
+   #   - target: 5514
+   #      published: ${LOGSTASH_PORT}
+   #      protocol: udp
+   #      mode: host 
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - ELASTICSEARCH_HOSTS=http://es_master:9200
+      - LS_JAVA_OPTS=-Xmx1024m -Xmx1024m
+    configs:
+      - source: logstash_logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+      - source: logstash_am_application.csv
+        target: /etc/logstash/config/dictionary/am_application.csv
+      - source: logstash_city_name.csv
+        target: /etc/logstash/config/dictionary/city_name.csv
+      - source: logstash_country_name.csv
+        target: /etc/logstash/config/dictionary/country_name.csv
+      - source: logstash_main.conf
+        target: /usr/share/logstash/pipeline/main.conf 
+    networks:
+      - service_cluster_network 
+configs:
+  logstash_logstash.yml: 
+    external: true
+  logstash_am_application.csv: 
+    external: true
+  logstash_city_name.csv: 
+    external: true
+  logstash_country_name.csv: 
+    external: true
+  logstash_main.conf: 
+    external: true
+networks:
+  service_cluster_network: 
+    external: true 

@@ -1,0 +1,28 @@
+
+
+version: '3.8'
+services:
+  mssql_db:
+    image: mcr.microsoft.com/mssql/server:2022-latest 
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.role ==  manager] 
+    restart: always
+    user: root
+    privileged: true
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${MSSQL_PWD}
+      - MSSQL_PID=Developer
+    volumes:
+      - /srv/infrastructure/mssql/data:/var/opt/mssql/data
+      - /srv/infrastructure/mssql/backup:/var/opt/mssql/backup
+      - /srv/infrastructure/mssql/log:/var/opt/mssql/log
+    ports:
+      - 4034:1433
+    networks:
+      - service_cluster_network
+networks:
+  service_cluster_network:
+    external: true 

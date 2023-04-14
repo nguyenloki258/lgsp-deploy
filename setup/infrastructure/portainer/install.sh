@@ -1,0 +1,1 @@
+docker run -d -p 8000:8000 -p 4011:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v /srv/infrastructure/portainer/portainer_data:/data portainer/portainer-ce:2.17.1

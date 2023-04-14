@@ -1,0 +1,28 @@
+version: '3.4'
+
+services:
+  client:
+    image: registry.s-erp.com.vn/wso2_is_am.sample.client:latest
+    ports: 
+     - 21000:80 
+    networks:
+      - service_cluster_network
+  client2:
+    image: registry.s-erp.com.vn/wso2_is_am.sample.client:latest
+    ports: 
+     - 21002:80 
+    networks:
+      - service_cluster_network
+  restapi:
+    image: registry.s-erp.com.vn/wso2_is_am.sample.restapi:latest
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports: 
+     - 21001:80
+    networks:
+      - service_cluster_network
+   
+networks:
+  service_cluster_network:
+    external: true
+

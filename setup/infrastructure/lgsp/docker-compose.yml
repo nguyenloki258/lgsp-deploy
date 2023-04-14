@@ -1,0 +1,86 @@
+version: "3.8"
+services: 
+  beka-lgsp-sso: 
+    image: ${REGISTRY}/beka-lgsp-sso:v6.0.0-update5
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.node == ${NODE_NAME} 
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9443"]
+      interval: 10s
+      start_period: 180s
+      retries: 20 
+    ports:
+      - "${PORT_PREFIX}9443:9443"
+      - "${PORT_PREFIX}8243:8243" 
+    environment:
+      - DB_TYPE
+      - MASTER_PASS
+      - DB_SERVER
+      - BKHOLDING_SHARED_DB
+      - BKHOLDING_IDENTITY_DB
+      - LOGSTASH_SERVER
+      - SSO_ADMIN_DOMAIN
+      - HEADER_1
+      - HEADER_2
+      - FOOTER_1
+      - FOOTER_2
+      - FOOTER_3
+      - TITLE_1
+      - TITLE_2
+      - PRODUCT_NAME
+      - FAVICON_URL
+      - BACKGROUND_HEADER_URL
+      - BACKGROUND_CONTENT_URL
+      - LOGO_URL
+      - LOGO_LONG_URL
+      - LOCKED_APP
+    networks:
+      - lgsp_cluster_network
+  beka-lgsp-apim:
+    image: ${REGISTRY}/beka-lgsp-apim:v4.1.0-update5
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.node == ${NODE_NAME}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8443"]
+      interval: 10s
+      start_period: 180s
+      retries: 20
+    ports:
+      - "${PORT_PREFIX}8443:8443"
+      - "${PORT_PREFIX}8280:8280"
+      - "${PORT_PREFIX}7243:7243"
+    environment:
+      - DB_TYPE
+      - LGSP_DOMAIN
+      - LGSP_ADMIN_DOMAIN
+      - MASTER_PASS
+      - DB_SERVER
+      - BKHOLDING_SHARED_DB
+      - BKHOLDING_AM_DB
+      - LOGSTASH_SERVER
+      - LGSP_DASHBOARD_DOMAIN
+      - HEADER_1
+      - HEADER_2
+      - FOOTER_1
+      - FOOTER_2
+      - FOOTER_3
+      - TITLE_1
+      - TITLE_2
+      - PRODUCT_NAME
+      - FAVICON_URL
+      - BACKGROUND_HEADER_URL
+      - BACKGROUND_CONTENT_URL
+      - LOGO_URL
+      - LOGO_LONG_URL
+      - LOCKED_APP
+    networks:
+      - lgsp_cluster_network
+networks:
+  lgsp_cluster_network:
+    external: true

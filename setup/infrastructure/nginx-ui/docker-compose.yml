@@ -1,0 +1,17 @@
+
+
+version: '3.8'
+name: "nginx-ui"
+services:
+  portainer:
+    container_name: nginx-ui
+    image: uozi/nginx-ui:latest
+    restart: always
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /srv/infrastructure/nginx-ui/nginx:/etc/nginx
+      - /srv/infrastructure/nginx-ui/nginx-ui:/etc/nginx-ui

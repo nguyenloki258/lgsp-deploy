@@ -1,0 +1,176 @@
+version: '3.8'
+services:
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    deploy:
+      mode: global
+    user: "0"
+    command: >
+      bash -c '
+        if [ x${ELASTIC_PASSWORD} == x ]; then
+          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
+          exit 1; 
+        fi; 
+        echo "Download certs from trusted"
+        until [ -f certs.zip ];
+          do sleep 30;
+          curl http://certs:1234/config/certs/ca.zip --output ca.zip
+          curl http://certs:1234/config/certs/certs.zip --output certs.zip
+        done;
+        unzip  -o ca.zip -d config/certs;
+        unzip  -o certs.zip -d config/certs;
+        echo "Setting file permissions"
+        chown -R root:root config/certs;
+        find . -type d -exec chmod 750 \{\} \;;
+        find . -type f -exec chmod 640 \{\} \;;
+        echo "Waiting for Elasticsearch availability";
+        until curl -s http://es_master:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
+        echo "Setting kibana_system password";
+        until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" http://es_master:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; 
+          curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" http://es_master:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}"
+          do sleep 10;
+         done;
+        echo "All Done";
+        sleep infinity
+      '
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+    networks:
+      - service_cluster_network
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/elasticsearch/elasticsearch.crt ]"]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+  es_master:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    deploy:
+      replicas: 1
+      # resources:
+      #   limits:
+      #     memory:
+      #       ${MEM_LIMIT}
+    ports:
+       - target: 9200
+         published: ${ES_PORT}
+         protocol: tcp
+         mode: host 
+    environment:
+      - node.name=elk_es_master.{{.Task.Slot}}
+      - cluster.name=${CLUSTER_NAME}
+      - discovery.seed_hosts=tasks.es_master
+      - cluster.initial_master_nodes=elk_es_master.1 
+      - bootstrap.memory_lock=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=true
+      - xpack.monitoring.collection.enabled=true 
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.key=certs/elasticsearch/elasticsearch.key
+      - xpack.security.transport.ssl.certificate=certs/elasticsearch/elasticsearch.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.license.self_generated.type=${LICENSE}
+      - TZ=Asia/Ho_Chi_Minh
+    volumes: 
+      - es_master:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    networks:
+      - service_cluster_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt http://localhost:9200 | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120 
+  es_data:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    deploy:
+      replicas: 1
+      # resources:
+      #   limits:
+      #     memory:
+      #       ${MEM_LIMIT}
+    ports:
+      - target: 9201
+        published: ${ES_PORT}
+        protocol: tcp
+        mode: host 
+    environment:
+      - node.roles=data,ingest
+      - node.name=elk_es_data.{{.Task.Slot}}
+      - cluster.name=${CLUSTER_NAME}
+      - discovery.seed_hosts=tasks.es_master
+      - cluster.initial_master_nodes=elk_es_master.1 
+      - bootstrap.memory_lock=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=true
+      - xpack.monitoring.collection.enabled=true 
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.key=certs/elasticsearch/elasticsearch.key
+      - xpack.security.transport.ssl.certificate=certs/elasticsearch/elasticsearch.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.license.self_generated.type=${LICENSE}
+      - TZ=Asia/Ho_Chi_Minh
+    volumes: 
+      - es_data:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
+    networks:
+      - service_cluster_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt http://localhost:9200 | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120 
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    deploy:
+      replicas: 1
+    ports:
+      - target: 5601
+        published: ${KIBANA_PORT}
+        protocol: tcp
+        mode: host 
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SERVERNAME=kibana
+      - ELASTICSEARCH_HOSTS=http://es_master:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+      - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
+    volumes:
+      - certs:/usr/share/kibana/config/certs
+      - kibana:/usr/share/kibana/data
+    networks:
+      - service_cluster_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+networks:
+  service_cluster_network: 
+    external: true
+volumes:
+  certs:
+    driver: local
+  es_master:
+    name: '{{.Service.Name}}-{{.Task.Slot}}' 
+  es_data:
+    name: '{{.Service.Name}}-{{.Task.Slot}}' 
+  kibana:
+    name: '{{.Service.Name}}-{{.Task.Slot}}' 
+ 
